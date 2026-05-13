@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GTO SNG</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #21262d;
+    --border: #30363d; --accent: #58a6ff; --green: #3fb950;
+    --orange: #f78166; --text: #e6edf3; --text-dim: #7d8590;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+    height: 100dvh; padding: 10px 10px 6px; gap: 7px;
+  }
+  .toggle-row { display: flex; gap: 6px; flex-shrink: 0; }
+  .toggle-btn {
+    flex: 1; padding: 12px 6px; border-radius: var(--radius);
+    border: 2px solid var(--border); background: var(--surface);
+    color: var(--text-dim); font-size: 1rem; font-weight: 700;
+    text-align: center; cursor: pointer;
+  }
+  .toggle-btn.active-hu { background: #0d2044; border-color: var(--accent); color: var(--accent); }
+  .toggle-btn.active-3w { background: #1a2f1a; border-color: var(--green); color: var(--green); }
+  .toggle-btn.active-pos { background: var(--surface2); border-color: var(--orange); color: var(--orange); }
+  .sit-bar-wrap { flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .sit-bar-wrap::-webkit-scrollbar { display: none; }
+  .sit-bar { display: flex; gap: 6px; padding: 2px 1px; width: max-content; }
+  .sit-btn {
+    padding: 10px 14px; border-radius: var(--radius);
+    border: 2px solid var(--border); background: var(--surface);
+    color: var(--text-dim); font-size: 0.78rem; font-weight: 600;
+    white-space: nowrap; cursor: pointer;
+  }
+  .sit-btn.active { background: #2d1f0a; border-color: var(--orange); color: #fff; }
+  .range-wrap {
+    flex: 1; min-height: 0; border-radius: var(--radius);
+    border: 1px solid var(--border); background: var(--surface);
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .range-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .placeholder { text-align: center; color: var(--text-dim); font-size: 0.85rem; padding: 20px; line-height: 1.8; }
+  .suit { font-size: 2.5rem; display: block; opacity: 0.3; }
+  .not-available { color: var(--orange); font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; padding: 20px; }
+  .stack-row { display: flex; gap: 5px; flex-shrink: 0; }
+  .stack-btn {
+    flex: 1; padding: 12px 2px; border-radius: var(--radius);
+    border: 2px solid var(--border); background: var(--surface);
+    color: var(--text-dim); font-size: 0.76rem; font-weight: 700;
+    text-align: center; cursor: pointer;
+  }
+  .stack-btn.active { background: #0f2d14; border-color: var(--green); color: var(--green); }
+  .stack-btn.disabled { opacity: 0.2; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="toggle-row" id="modeRow">
+  <button class="toggle-btn" data-mode="HU" onclick="selectMode('HU')">Heads Up</button>
+  <button class="toggle-btn" data-mode="3W" onclick="selectMode('3W')">3-Way</button>
+</div>
+
+<div class="toggle-row" id="posRow"></div>
+
+<div class="sit-bar-wrap"><div class="sit-bar" id="sitBar"></div></div>
+
+<div class="range-wrap" id="rangeWrap">
+  <div class="placeholder"><span class="suit">♠</span>Elegí modo, posición<br>y situación</div>
+</div>
+
+<div class="stack-row" id="stackRow"></div>
+
+<script>
+const SITUATIONS = [{"key": "HU-SB-01_HU-SB-Opens", "label": "SB abre", "group": "HU - Sos SB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-SB-02_HU-SB-call-BB-raises", "label": "SB call → BB raises", "group": "HU - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-SB-03_HU-SB-raise-BB-re-raises", "label": "SB raise → BB re-raise", "group": "HU - Sos SB", "stacks": {"5BB": false, "7.5BB": false, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-SB-04_HU-SB-call-BB-all-in", "label": "SB call → BB all-in", "group": "HU - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-SB-05_HU-SB-raise-BB-all-in", "label": "SB raise → BB all-in", "group": "HU - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-BB-01_HU-BB-vs-SB-call", "label": "SB call → BB actúa", "group": "HU - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-BB-02_HU-BB-vs-SB-raise", "label": "SB raise → BB actúa", "group": "HU - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-BB-03_HU-BB-vs-SB-all-in", "label": "SB all-in → BB actúa", "group": "HU - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-BB-04_BB-raises-vs-SB-call-then-allin", "label": "SB call → BB raise → SB all-in", "group": "HU - Sos BB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "HU-BB-05_BB-reraises-vs-SB-raise-then-allin", "label": "SB raise → BB re-raise → SB all-in", "group": "HU - Sos BB", "stacks": {"5BB": false, "7.5BB": false, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BTN-01_3W-BTN-Opens", "label": "BTN abre", "group": "3-Way - Sos BTN", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BTN-02_3W-BTN-raise-SB-raises", "label": "BTN raise → SB raise", "group": "3-Way - Sos BTN", "stacks": {"5BB": false, "7.5BB": false, "10BB": false, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BTN-03_3W-BTN-raise-SB-all-in", "label": "BTN raise → SB all-in", "group": "3-Way - Sos BTN", "stacks": {"5BB": false, "7.5BB": false, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BTN-04_3W-BTN-raise-BB-raises", "label": "BTN raise → BB raise", "group": "3-Way - Sos BTN", "stacks": {"5BB": false, "7.5BB": false, "10BB": false, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BTN-05_3W-BTN-raise-BB-all-in", "label": "BTN raise → BB all-in", "group": "3-Way - Sos BTN", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-01_3W-SB-vs-BTN-call", "label": "BTN call → SB actúa", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-02_3W-SB-vs-BTN-raise", "label": "BTN raise → SB actúa", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-03_3W-SB-vs-BTN-all-in", "label": "BTN all-in → SB actúa", "group": "3-Way - Sos SB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-04_3W-SB-vs-BTN-fold", "label": "BTN fold → SB abre", "group": "3-Way - Sos SB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-05_3W-SB-call-BB-raises", "label": "BTN fold, SB call → BB raise", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-06_3W-SB-call-BB-all-in", "label": "BTN fold, SB call → BB all-in", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-07_3W-SB-raise-BB-raises", "label": "BTN fold, SB raise → BB raise", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-SB-08_3W-SB-raise-BB-all-in", "label": "BTN fold, SB raise → BB all-in", "group": "3-Way - Sos SB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-01_3W-BB-vs-SB-call", "label": "BTN fold, SB call → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-02_3W-BB-vs-SB-raise", "label": "BTN fold, SB raise → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-03_3W-BB-vs-SB-all-in", "label": "BTN fold, SB all-in → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-04_3W-BB-vs-BTN-call", "label": "SB fold, BTN call → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-05_3W-BB-vs-BTN-raise", "label": "SB fold, BTN raise → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": false, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}, {"key": "3W-BB-06_3W-BB-vs-BTN-all-in", "label": "SB fold, BTN all-in → BB actúa", "group": "3-Way - Sos BB", "stacks": {"5BB": true, "7.5BB": true, "10BB": true, "12.5BB": true, "15BB": true, "20BB": true, "25BB": true}}];
+const STACKS = ["5BB","7.5BB","10BB","12.5BB","15BB","20BB","25BB"];
+const POS_BY_MODE = { "HU": ["SB","BB"], "3W": ["BTN","SB","BB"] };
+
+let selMode = null, selPos = null, selSit = null, selStack = null;
+
+// Init stacks immediately (independent)
+renderStacks();
+
+function selectMode(m) {
+  selMode = m; selPos = null; selSit = null;
+  document.querySelectorAll('#modeRow .toggle-btn').forEach(b =>
+    b.className = 'toggle-btn' + (b.dataset.mode === m ? (m==='HU'?' active-hu':' active-3w') : ''));
+  renderPos(); renderSits(); renderImage(); renderStacks();
+}
+
+function renderPos() {
+  const row = document.getElementById('posRow');
+  row.innerHTML = '';
+  if (!selMode) return;
+  POS_BY_MODE[selMode].forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'toggle-btn' + (selPos === p ? ' active-pos' : '');
+    btn.textContent = p;
+    btn.dataset.pos = p;
+    btn.onclick = () => selectPos(p);
+    row.appendChild(btn);
+  });
+}
+
+function selectPos(p) {
+  selPos = p; selSit = null;
+  document.querySelectorAll('#posRow .toggle-btn').forEach(b =>
+    b.className = 'toggle-btn' + (b.dataset.pos === p ? ' active-pos' : ''));
+  renderSits(); renderImage(); renderStacks();
+}
+
+function getGroup() {
+  if (!selMode || !selPos) return null;
+  return selMode === "HU" ? "HU - Sos " + selPos : "3-Way - Sos " + selPos;
+}
+
+function renderSits() {
+  const bar = document.getElementById('sitBar');
+  bar.innerHTML = '';
+  const group = getGroup();
+  if (!group) return;
+  SITUATIONS.filter(s => s.group === group).forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sit-btn' + (selSit === s.key ? ' active' : '');
+    btn.textContent = s.label;
+    btn.dataset.key = s.key;
+    btn.onclick = () => selectSit(s.key);
+    bar.appendChild(btn);
+  });
+}
+
+function selectSit(key) {
+  selSit = key;
+  document.querySelectorAll('.sit-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.key === key));
+  renderImage(); renderStacks();
+}
+
+function renderStacks() {
+  const row = document.getElementById('stackRow');
+  row.innerHTML = '';
+  const sit = selSit ? SITUATIONS.find(s => s.key === selSit) : null;
+  STACKS.forEach(stack => {
+    const btn = document.createElement('button');
+    const available = sit ? sit.stacks[stack] : true;
+    btn.className = 'stack-btn' + (selStack === stack ? ' active' : '') + (!available ? ' disabled' : '');
+    btn.textContent = stack;
+    btn.dataset.stack = stack;
+    btn.onclick = () => selectStack(stack);
+    row.appendChild(btn);
+  });
+}
+
+function selectStack(stack) {
+  selStack = stack;
+  document.querySelectorAll('.stack-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.stack === stack));
+  renderImage();
+}
+
+function renderImage() {
+  const wrap = document.getElementById('rangeWrap');
+  if (!selSit || !selStack) {
+    wrap.innerHTML = '<div class="placeholder"><span class="suit">♠</span>Elegí situación y stack</div>';
+    return;
+  }
+  const sit = SITUATIONS.find(s => s.key === selSit);
+  if (!sit.stacks[selStack]) {
+    wrap.innerHTML = '<div class="not-available">⚠ No existe para ' + selStack + '</div>';
+    return;
+  }
+  const img = document.createElement('img');
+  img.src = 'img/' + selSit + '_' + selStack + '.png';
+  wrap.innerHTML = '';
+  wrap.appendChild(img);
+}
+</script>
+</body>
+</html>
